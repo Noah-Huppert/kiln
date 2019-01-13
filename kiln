@@ -17,7 +17,9 @@ OVERVIEW
 
 USAGE
 
-	$progname COMMAND [ARGUMENTS...,OPTIONS...]
+	$progname COMMAND [ARGUMENTS...] [OPTIONS...]
+
+	Note: The order that ARGUMENTS... and OPTIONS... apear does not matter
 
 ARGUMENTS
 
@@ -38,7 +40,7 @@ UP_COMMAND
 
 	USAGE
 
-		$progname up [--namespace,-n NAMESPACE] CHART_PATH
+		$progname up [--namespace,-n NAMESPACE] [--values-file,-f VALUES_FILE] CHART_PATH
 		
 	ARGUMENTS
 
@@ -46,7 +48,9 @@ UP_COMMAND
 
 	OPTIONS
 
-		--namespace,-n NAMESPACE    Namespace to deploy resources in
+		--namespace,-n NAMESPACE        Namespace to deploy resources in
+		--values-file,-f VALUES_FILE    Additional Helm values file. This arugment can
+		                                be provided multiple times.
 
 DEPENDENCIES
 
@@ -71,10 +75,13 @@ fi
 #
 # ARGUMENTS
 #
-#	1. CHART_PATH    Path to Helm chart
-#	2. NAMESPACE     (Optional) Namespace to deploy resources to
+#	1. CHART_PATH      Path to Helm chart
+#	2. NAMESPACE       (Optional) Namespace to deploy resources to
+#	3. VALUES_FILES    (Optional) Additional Helm values file locations
+#	                   separated by spaces
 up_command() {
 	# Check arguments
+	# ... CHART_PATH
 	if [ -z "$1" ]; then
 		echo "Error: CHART_PATH argument must be provided" >&2
 		exit 1
@@ -86,13 +93,23 @@ up_command() {
 		exit 1
 	fi
 
+	# ... NAMESPACE
 	kubectl_args=""
 	if [ ! -z "$2" ]; then
 		kubectl_args="$kubectl_args --namespace $2"
 	fi
 
+	# ... VALUES_FILES
+	helm_args=""
+	if [ ! -z "$3" ]; then
+		values_files=("$3")
+		for values_file in "${values_files[@]}"; do
+			helm_args="$helm_args -f $values_file"
+		done
+	fi
+
 	# Render Helm templates
-	templates=$(helm template "$chart_path")
+	templates=$(helm template "$helm_args" "$chart_path")
 
 	if [[ "$?" != "0" ]]; then
 		echo "Error: Failed to render Helm templates" >&2
@@ -100,7 +117,7 @@ up_command() {
 	fi
 
 	# Deploy
-	echo "$templates" | kubectl apply -f -
+	echo "$templates" | kubectl apply "$kubectl_args" -f -
 
 	if [[ "$?" != "0" ]]; then
 		echo "Error: Failed to deploy" >&2
@@ -123,6 +140,12 @@ case "$1" in
 					shift
 					;;
 
+				--values-file,-f)
+					shift
+					up_values_files="$up_values_files $1"
+					shift
+					;;
+
 				*)
 					up_chart_path="$1"
 					shift
@@ -130,7 +153,7 @@ case "$1" in
 			esac
 		done
 
-		up_command "$up_chart_path" "$up_namespace"
+		up_command "$up_chart_path" "$up_namespace" "$up_values_files"
 		;;
 	
 	*)
