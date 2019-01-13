@@ -7,7 +7,7 @@ progname="$(basename $0)"
 
 # If help argument
 if [[ "$1" =~ (--help|-h) || -z "$1" ]]; then
-	cat << EOF
+	"$PAGER" << EOF
 $progname - A client side only, Helm compatible, package manager for Kubernetes
 
 OVERVIEW
@@ -17,7 +17,7 @@ OVERVIEW
 
 USAGE
 
-	$progname COMMAND [ARGUMENTS...] [OPTIONS...]
+	$progname COMMAND [--help,-h] [ARGUMENTS...] [OPTIONS...]
 
 	Note: The order that ARGUMENTS... and OPTIONS... apear does not matter
 
@@ -28,6 +28,7 @@ ARGUMENTS
 
 OPTIONS
 
+	--help,-h     Show help text in pager
 	OPTIONS...    Sub command options. See COMMANDS section
 
 COMMANDS
