@@ -25,5 +25,6 @@ Run Kiln with the `--help` / `-h` option to see usage details.
 # Name
 A dumb cute name.  
 
-A Kiln takes uncooked clay hardens it.  
+A [Kiln](https://en.wikipedia.org/wiki/Kiln) takes uncooked clay and 
+hardens it.  
 The Kiln tool takes a Helm chart and renders it into a static set of files.  
