@@ -5,6 +5,7 @@ A client side only, Helm compatible, package manager for Kubernetes.
 - [Overview](#overview)
 - [Install](#install)
 - [Usage](#usage)
+- [Name](#name)
 
 # Overview
 Kiln prepares all resource configuration files on your computer, using 
@@ -20,3 +21,9 @@ system path as well.
 
 # Usage
 Run Kiln with the `--help` / `-h` option to see usage details.
+
+# Name
+A dumb cute name.  
+
+A Kiln takes uncooked clay hardens it.  
+The Kiln tool takes a Helm chart and renders it into a static set of files.  
