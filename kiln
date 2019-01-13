@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# kiln - A client side only, Helm compatible, package manager for Kubernetes.
+# 
+# Run kiln --help for more information
+
+progname="$(basename $0)"
+
+# If help argument
+if [[ "$1" =~ (--help|-h) || -z "$1" ]]; then
+	cat << EOF
+$progname - A client side only, Helm compatible, package manager for Kubernetes
+
+OVERVIEW
+
+	A tool for managing Helm charts without a Tiller server. Locally 
+	prepares resource configuration files and deploys with kubectl.
+
+USAGE
+
+	$progname COMMAND [ARGUMENTS...]
+
+ARGUMENTS
+
+	COMMAND         Sub command to run. See COMMANDS section
+	ARGUMENTS...    Sub command arguments. See COMMANDS section
+
+COMMANDS
+
+	up    Deploy Helm chart
+
+		USAGE
+
+			$progname up CHART_PATH
+		
+		ARGUMENTS
+
+			CHART_PATH    Path to Helm chart
+EOF
+
+	exit 1
+fi
