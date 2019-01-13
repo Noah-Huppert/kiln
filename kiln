@@ -17,25 +17,124 @@ OVERVIEW
 
 USAGE
 
-	$progname COMMAND [ARGUMENTS...]
+	$progname COMMAND [ARGUMENTS...,OPTIONS...]
 
 ARGUMENTS
 
 	COMMAND         Sub command to run. See COMMANDS section
 	ARGUMENTS...    Sub command arguments. See COMMANDS section
 
+OPTIONS
+
+	OPTIONS...    Sub command options. See COMMANDS section
+
 COMMANDS
 
-	up    Deploy Helm chart
+	Valid COMMAND argument values:
 
-		USAGE
+		up    Deploy Helm chart. See UP_COMMAND section
 
-			$progname up CHART_PATH
+UP_COMMAND
+
+	USAGE
+
+		$progname up [--namespace,-n NAMESPACE] CHART_PATH
 		
-		ARGUMENTS
+	ARGUMENTS
 
-			CHART_PATH    Path to Helm chart
+		CHART_PATH    Path to Helm chart
+
+	OPTIONS
+
+		--namespace,-n NAMESPACE    Namespace to deploy resources in
+
+DEPENDENCIES
+
+	The helm and kubectl executables must be present.
 EOF
 
 	exit 1
 fi
+
+# Check for dependencies
+if ! which helm &> /dev/null; then
+	echo "Error: helm executable must be in path" >&2
+	exit 1
+fi
+
+if ! which kubectl &> /dev/null; then
+	echo "Error: kubectl executable must be in path" >&2
+	exit 1
+fi
+
+# Deploy Helm chart
+#
+# ARGUMENTS
+#
+#	1. CHART_PATH    Path to Helm chart
+#	2. NAMESPACE     (Optional) Namespace to deploy resources to
+up_command() {
+	# Check arguments
+	if [ -z "$1" ]; then
+		echo "Error: CHART_PATH argument must be provided" >&2
+		exit 1
+	fi
+	chart_path="$1"
+
+	if [ ! -d "$chart_path" ]; then
+		echo "Error: CHART_PATH argument must point to a directory which exists" >&2
+		exit 1
+	fi
+
+	kubectl_args=""
+	if [ ! -z "$2" ]; then
+		kubectl_args="$kubectl_args --namespace $2"
+	fi
+
+	# Render Helm templates
+	templates=$(helm template "$chart_path")
+
+	if [[ "$?" != "0" ]]; then
+		echo "Error: Failed to render Helm templates" >&2
+		exit 1
+	fi
+
+	# Deploy
+	echo "$templates" | kubectl apply -f -
+
+	if [[ "$?" != "0" ]]; then
+		echo "Error: Failed to deploy" >&2
+		exit 1
+	fi
+}
+
+# Run command
+case "$1" in
+	up)
+		cmd="up"
+		
+		shift
+
+		while [ ! -z "$1" ]; do
+			case "$1" in
+				--namespace|-n)
+					shift
+					up_namespace="$1"
+					shift
+					;;
+
+				*)
+					up_chart_path="$1"
+					shift
+					;;
+			esac
+		done
+
+		up_command "$up_chart_path" "$up_namespace"
+		;;
+	
+	*)
+		echo "Error: Unknown command \"$1\"" >&2
+		exit 1
+		;;
+esac
