@@ -44,7 +44,7 @@ UP_COMMAND
 		
 	ARGUMENTS
 
-		CHART_PATH    Path to Helm chart
+		CHART_PATH    Path to Helm chart. See CHART_PATHS section
 
 	OPTIONS
 
@@ -52,9 +52,25 @@ UP_COMMAND
 		--values-file,-f VALUES_FILE    Additional Helm values file. This arugment can
 		                                be provided multiple times.
 
+CHART_PATHS
+
+	A chart path specifies the location of a Helm chart.  
+
+	This can either be a local directory or location in a repository.
+
+	If a chart path is a chart in a repository it will be downloaded and 
+	unpacked in $KILN_TMP_DIR. See GLOBAL_CONFIGURATION section.
+
+GLOBAL_CONFIGURATION
+
+	The $progname script can be configured with these environment variables:
+
+		KILN_TMP_DIR    Directory to place temporary files. Defaults 
+		                to /var/tmp.
+
 DEPENDENCIES
 
-	The helm and kubectl executables must be present.
+	The helm, kubectl, and GNU sed executables must be present.
 EOF
 
 	exit 1
@@ -71,6 +87,51 @@ if ! which kubectl &> /dev/null; then
 	exit 1
 fi
 
+if ! sed --version | grep GNU &> /dev/null; then
+	echo "Error: GNU sed executable must be in path with name \"sed\"" >&2
+	exit 1
+fi
+
+# Global configuration
+if [ -z "$KILN_TMP_DIR" ]; then
+	KILN_TMP_DIR="/var/tmp"
+fi
+
+# Return location of helm chart. If chart in a directory simply return the 
+# path. If chart is in a repository download the chart and unpack it, then 
+# return the path.
+#
+# ARGUMENTS
+#
+#	1. CHART_PATH    Chart path value to resolve
+#
+# RETURNS
+#
+#	Path to chart directory on file system
+resolve_chart_path() {
+	# Check arguments
+	if [ -z "$1" ]; then
+		echo "Error: CHART_PATH argument must be provided" >&2
+		return 1
+	fi
+	chart_path="$1"
+
+	# Check if directory
+	if [ -d "$chart_path" ]; then
+		echo "$chart_path"
+		return 0
+	fi
+
+	# Otherwise try and download from repository
+	normal_chart_path=$(echo "$chart_path" | sed 's/ /-/g')
+	if ! helm fetch --untar --untardir "$KILN_TMP_DIR/$normal_chart_path" "$chart_path"; then
+		echo "Error: Failed to fetch \"$chart_path\"" >&2
+		return 1
+	fi
+	echo "$KILN_TMP_DIR/$normal_chart_path"
+	return 0
+}
+
 # Deploy Helm chart
 #
 # ARGUMENTS
@@ -86,10 +147,10 @@ up_command() {
 		echo "Error: CHART_PATH argument must be provided" >&2
 		exit 1
 	fi
-	chart_path="$1"
+	chart_path=$(resolve_chart_path "$1")
 
-	if [ ! -d "$chart_path" ]; then
-		echo "Error: CHART_PATH argument must point to a directory which exists" >&2
+	if [[ "$?" != "0" ]]; then
+		echo "Error: Failed to resolve CHART_PATH" >&2
 		exit 1
 	fi
 
