@@ -160,6 +160,7 @@ up_command() {
 	if [ ! -z "$2" ]; then
 		kubectl_args="$kubectl_args --namespace $2"
 	fi
+	namespace="$2"
 
 	# ... VALUES_FILES
 	helm_args=""
@@ -171,15 +172,25 @@ up_command() {
 	fi
 
 	# Render Helm templates
-	templates=$(helm template "$helm_args" "$chart_path")
+	templates=$(helm template $helm_args "$chart_path")
 
 	if [[ "$?" != "0" ]]; then
 		echo "Error: Failed to render Helm templates" >&2
 		exit 1
 	fi
 
+	# Check if namespace needs to be created
+	if [ ! -z "$namespace" ]; then
+		if ! kubectl get namespaces | grep "$namespace"; then
+			if ! kubectl create namespace "$namespace"; then
+				echo "Error: Failed to create \"$namespace\" namespace" >&2
+				exit 1
+			fi
+		fi
+	fi
+
 	# Deploy
-	echo "$templates" | kubectl apply "$kubectl_args" -f -
+	echo "$templates" | kubectl apply $kubectl_args -f -
 
 	if [[ "$?" != "0" ]]; then
 		echo "Error: Failed to deploy" >&2
@@ -202,7 +213,7 @@ case "$1" in
 					shift
 					;;
 
-				--values-file,-f)
+				--values-file|-f)
 					shift
 					up_values_files="$up_values_files $1"
 					shift
