@@ -17,7 +17,7 @@ OVERVIEW
 
 USAGE
 
-	$progname COMMAND [--help,-h] [ARGUMENTS...] [OPTIONS...]
+	$progname COMMAND [--help,-h] [--namespace,-n NAMESPACE] [ARGUMENTS...] [OPTIONS...]
 
 	Note: The order that ARGUMENTS... and OPTIONS... apear does not matter
 
@@ -28,20 +28,22 @@ ARGUMENTS
 
 OPTIONS
 
-	--help,-h     Show help text in pager
-	OPTIONS...    Sub command options. See COMMANDS section
+	--help,-h                   Show help text in pager
+	--namespace,-n NAMESPACE    Namespace to deploy resources in
+	OPTIONS...                  Sub command options. See COMMANDS section
 
 COMMANDS
 
 	Valid COMMAND argument values:
 
-		up    Deploy Helm chart. See UP_COMMAND section
+		up      Deploy Helm chart. See UP_COMMAND section
+		wait    Wait for a deployment to finish. See WAIT_COMMAND section
 
 UP_COMMAND
 
 	USAGE
 
-		$progname up [--namespace,-n NAMESPACE] [--values-file,-f VALUES_FILE] CHART_PATH
+		$progname up [--values-file,-f VALUES_FILE] CHART_PATH
 		
 	ARGUMENTS
 
@@ -49,9 +51,18 @@ UP_COMMAND
 
 	OPTIONS
 
-		--namespace,-n NAMESPACE        Namespace to deploy resources in
 		--values-file,-f VALUES_FILE    Additional Helm values file. This arugment can
 		                                be provided multiple times.
+
+WAIT_COMMAND
+
+	USAGE
+
+		$progname wait DEPLOYMENT
+
+	ARGUMENTS
+
+		DEPLOYMENT    Name of deployment to wait for
 
 CHART_PATHS
 
@@ -138,7 +149,6 @@ resolve_chart_path() {
 # ARGUMENTS
 #
 #	1. CHART_PATH      Path to Helm chart
-#	2. NAMESPACE       (Optional) Namespace to deploy resources to
 #	3. VALUES_FILES    (Optional) Additional Helm values file locations
 #	                   separated by spaces
 up_command() {
@@ -155,20 +165,18 @@ up_command() {
 		exit 1
 	fi
 
-	# ... NAMESPACE
-	kubectl_args=""
-	if [ ! -z "$2" ]; then
-		kubectl_args="$kubectl_args --namespace $2"
-	fi
-	namespace="$2"
-
 	# ... VALUES_FILES
 	helm_args=""
-	if [ ! -z "$3" ]; then
-		values_files=("$3")
+	if [ ! -z "$2" ]; then
+		values_files=("$2")
 		for values_file in "${values_files[@]}"; do
 			helm_args="$helm_args -f $values_file"
 		done
+	fi
+
+	# Set kubectl args if namespace set
+	if [ ! -z "$ZILN_NAMESPACE" ]; then
+		kubectl_args="--namespace $ZILN_NAMESPACE"
 	fi
 
 	# Render Helm templates
@@ -180,10 +188,10 @@ up_command() {
 	fi
 
 	# Check if namespace needs to be created
-	if [ ! -z "$namespace" ]; then
-		if ! kubectl get namespaces | grep "$namespace"; then
-			if ! kubectl create namespace "$namespace"; then
-				echo "Error: Failed to create \"$namespace\" namespace" >&2
+	if [ ! -z "$ZILN_NAMESPACE" ]; then
+		if ! kubectl get namespaces | grep "$ZILN_NAMESPACE"; then
+			if ! kubectl create namespace "$ZILN_NAMESPACE"; then
+				echo "Error: Failed to create \"$ZILN_NAMESPACE\" namespace" >&2
 				exit 1
 			fi
 		fi
@@ -198,39 +206,84 @@ up_command() {
 	fi
 }
 
-# Run command
-case "$1" in
-	up)
-		cmd="up"
-		
-		shift
-
-		while [ ! -z "$1" ]; do
-			case "$1" in
-				--namespace|-n)
-					shift
-					up_namespace="$1"
-					shift
-					;;
-
-				--values-file|-f)
-					shift
-					up_values_files="$up_values_files $1"
-					shift
-					;;
-
-				*)
-					up_chart_path="$1"
-					shift
-					;;
-			esac
-		done
-
-		up_command "$up_chart_path" "$up_namespace" "$up_values_files"
-		;;
-	
-	*)
-		echo "Error: Unknown command \"$1\"" >&2
+# Wait for deployment to complete
+#
+# ARGUMENTS
+#
+#	1. DEPLOYMENT    Name of deployment to wait for
+wait_command() {
+	# Check arguments
+	if [ -z "$1" ]; then
+		echo "Error: DEPLOYMENT argument must be provided" >&2
 		exit 1
+	fi
+	deployment="$1"
+
+	# Set kubectl args if namespace set
+	if [ ! -z "$KILN_NAMESPACE" ]; then
+		kubectl_args="--namespace $KILN_NAMESPACE"
+	fi
+
+	# Wait
+	if ! kubectl $kubectl_args rollout status deployment "$deployment"; then
+		echo "Error: Failed to wait for deployment \"$deployment\" to rollout" >&2
+		exit 1
+	fi
+}
+
+# Run command
+while [ ! -z "$1" ]; do
+	case "$1" in
+		up)
+			cmd="up"
+			shift
+
+			while [ ! -z "$1" ]; do
+				case "$1" in	
+					--values-file|-f)
+						shift
+						up_values_files="$up_values_files $1"
+						shift
+						;;
+
+					*)
+						up_chart_path="$1"
+						shift
+						;;
+				esac
+			done
+			;;
+
+		wait)
+			cmd="wait"
+			shift
+
+			deployment="$1"
+			shift
+			;;
+
+		--namespace|-n)
+			# Exports KILN_NAMESPACE which is used globally 
+			# in commands
+			shift
+			KILN_NAMESPACE="$1"
+			shift
+			;;
+		
+		*)
+			echo "Error: Unknown command \"$1\"" >&2
+			exit 1
+			;;
+	esac
+done
+
+case "$cmd" in
+	up)
+		up_command "$up_chart_path" "$up_values_files"
+		;;
+
+	wait)
+
+		wait_command "$deployment"
 		;;
 esac
