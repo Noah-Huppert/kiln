@@ -175,8 +175,8 @@ up_command() {
 	fi
 
 	# Set kubectl args if namespace set
-	if [ ! -z "$ZILN_NAMESPACE" ]; then
-		kubectl_args="--namespace $ZILN_NAMESPACE"
+	if [ ! -z "$KILN_NAMESPACE" ]; then
+		kubectl_args="--namespace $KILN_NAMESPACE"
 	fi
 
 	# Render Helm templates
@@ -188,10 +188,10 @@ up_command() {
 	fi
 
 	# Check if namespace needs to be created
-	if [ ! -z "$ZILN_NAMESPACE" ]; then
-		if ! kubectl get namespaces | grep "$ZILN_NAMESPACE"; then
-			if ! kubectl create namespace "$ZILN_NAMESPACE"; then
-				echo "Error: Failed to create \"$ZILN_NAMESPACE\" namespace" >&2
+	if [ ! -z "$KILN_NAMESPACE" ]; then
+		if ! kubectl get namespaces | grep "$KILN_NAMESPACE"; then
+			if ! kubectl create namespace "$KILN_NAMESPACE"; then
+				echo "Error: Failed to create \"$KILN_NAMESPACE\" namespace" >&2
 				exit 1
 			fi
 		fi
